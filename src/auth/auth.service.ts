@@ -46,6 +46,7 @@ export class AuthService {
     const token = this.jwtService.sign({ email: data.email });
 
     res.cookie('signup_pending', token, {
+      httpOnly: false, // Let client js access this cookie to detect a pending signup flow
       // secure: process.env.NODE_ENV === 'production',
       secure: false,
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',

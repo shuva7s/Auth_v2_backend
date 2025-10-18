@@ -26,7 +26,6 @@ export class SessionGuard implements CanActivate {
     const sessionToken = request.cookies?.session_token;
 
     if (!sessionToken) {
-      response.clearCookie('session_token');
       throw new UnauthorizedException('No session token');
     }
 
@@ -36,13 +35,23 @@ export class SessionGuard implements CanActivate {
     });
 
     if (!session) {
-      response.clearCookie('session_token');
+      response.clearCookie('session_token', {
+        httpOnly: true,
+        // secure: process.env.NODE_ENV === 'production',
+        secure: false,
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      });
       throw new UnauthorizedException('Invalid session');
     }
 
     if (new Date() > session.expiresAt) {
       await this.sessionRepo.remove(session);
-      response.clearCookie('session_token');
+      response.clearCookie('session_token', {
+        httpOnly: true,
+        // secure: process.env.NODE_ENV === 'production',
+        secure: false,
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      });
       throw new UnauthorizedException('Session expired');
     }
 

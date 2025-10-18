@@ -35,23 +35,11 @@ export class SessionGuard implements CanActivate {
     });
 
     if (!session) {
-      response.clearCookie('session_token', {
-        httpOnly: true,
-        // secure: process.env.NODE_ENV === 'production',
-        secure: false,
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-      });
       throw new UnauthorizedException('Invalid session');
     }
 
     if (new Date() > session.expiresAt) {
       await this.sessionRepo.remove(session);
-      response.clearCookie('session_token', {
-        httpOnly: true,
-        // secure: process.env.NODE_ENV === 'production',
-        secure: false,
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-      });
       throw new UnauthorizedException('Session expired');
     }
 

@@ -57,7 +57,8 @@ export class SessionGuard implements CanActivate {
       // Update cookie
       response.cookie('session_token', sessionToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        // secure: process.env.NODE_ENV === 'production',
+        secure: false,
         sameSite: 'lax',
         maxAge: this.SESSION_DURATION_MS,
       });

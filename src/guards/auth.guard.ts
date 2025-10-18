@@ -59,7 +59,7 @@ export class SessionGuard implements CanActivate {
         httpOnly: true,
         // secure: process.env.NODE_ENV === 'production',
         secure: false,
-        sameSite: 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         maxAge: this.SESSION_DURATION_MS,
       });
     }

@@ -48,7 +48,7 @@ export class AuthService {
     res.cookie('signup_pending', token, {
       // secure: process.env.NODE_ENV === 'production',
       secure: false,
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 5 * 60 * 1000, // 5 minutes
     });
 
@@ -163,7 +163,7 @@ export class AuthService {
       httpOnly: true,
       // secure: process.env.NODE_ENV === 'production',
       secure: false,
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -193,7 +193,7 @@ export class AuthService {
       httpOnly: true,
       // secure: process.env.NODE_ENV === 'production',
       secure: false,
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
     });
 
     return { message: 'Logged out successfully' };

@@ -9,10 +9,12 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
-  app.enableCors({
-    origin: 'http://localhost:3000', // Allow frontend to make requests
-    credentials: true,
-  });
+  if (process.env.NODE_ENV !== 'production') {
+    app.enableCors({
+      origin: ['http://localhost:3000'],
+      credentials: true,
+    });
+  }
 
   // global api prefix
   app.setGlobalPrefix('api');

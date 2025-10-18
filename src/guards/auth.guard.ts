@@ -35,15 +35,26 @@ export class SessionGuard implements CanActivate {
     });
 
     if (!session) {
+      response.clearCookie('session_token', {
+        httpOnly: true,
+        secure: false,
+        // secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      });
       throw new UnauthorizedException('Invalid session');
     }
 
     if (new Date() > session.expiresAt) {
+      response.clearCookie('session_token', {
+        httpOnly: true,
+        secure: false,
+        // secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      });
       await this.sessionRepo.remove(session);
-      throw new UnauthorizedException('Session expired');
+      throw new UnauthorizedException('Expired token');
     }
 
-    // Only slide if enough time has passed since last update
     const timeSinceLastUpdate = Date.now() - session.updatedAt.getTime();
     const shouldSlide = timeSinceLastUpdate > this.SLIDE_INTERVAL_MS;
 

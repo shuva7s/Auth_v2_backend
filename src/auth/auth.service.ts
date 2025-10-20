@@ -64,8 +64,6 @@ export class AuthService {
     req: Request;
     res: Response;
   }) {
-    console.log(`Verifying OTP ${otp}`);
-
     const token = req.cookies?.signup_pending;
     if (!token) throw new BadRequestException('Signup session not found');
 
@@ -106,8 +104,44 @@ export class AuthService {
     await this.tempUserRepo.delete({ email: record.email });
     res.clearCookie('signup_pending');
 
-    console.log(`User ${user.email} created`);
-    return { message: 'User created successfully' };
+    // Check auto sign-in config
+    const auto_sign_in_after_sign_up =
+      process.env.AUTO_SIGNIN_AFTER_SIGN_UP === 'true';
+
+    if (auto_sign_in_after_sign_up) {
+      const sessionToken = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const ipAddress =
+        req.headers['x-forwarded-for']?.toString() ||
+        req.socket.remoteAddress ||
+        null;
+      const userAgent = req.headers['user-agent'] || null;
+
+      const session = this.sessionRepo.create({
+        user,
+        sessionToken,
+        expiresAt,
+        ipAddress,
+        userAgent,
+      } as DeepPartial<Session>);
+      await this.sessionRepo.save(session);
+
+      res.cookie('session_token', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+      return {
+        message: `Welcome ${user.name}!`,
+        redirectPath: '/',
+      };
+    } else {
+      return {
+        message: `Account created successfully, Signin to ontinue`,
+        redirectPath: '/sign-in',
+      };
+    }
   }
 
   async signIn({
@@ -140,7 +174,7 @@ export class AuthService {
     const valid = await bcrypt.compare(password, account.hashedPassword);
     if (!valid) throw new BadRequestException('Invalid credentials');
 
-    // 4️⃣ Create a new session
+    // Create a new session
     const sessionToken = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const ipAddress =
@@ -158,7 +192,7 @@ export class AuthService {
     } as DeepPartial<Session>);
     await this.sessionRepo.save(session);
 
-    // 5️⃣ Set the session token as a cookie
+    // Set the session token as a cookie
     res.cookie('session_token', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

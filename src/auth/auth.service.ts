@@ -48,7 +48,7 @@ export class AuthService {
     res.cookie('signup_pending', token, {
       httpOnly: false, // Let client js access this cookie to detect a pending signup flow
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      sameSite: 'lax',
       maxAge: 5 * 60 * 1000, // 5 minutes
     });
 
@@ -129,7 +129,7 @@ export class AuthService {
       res.cookie('session_token', sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
       return {
@@ -196,7 +196,7 @@ export class AuthService {
     res.cookie('session_token', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -225,7 +225,7 @@ export class AuthService {
     res.clearCookie('session_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      sameSite: 'lax',
     });
 
     return { message: 'Logged out successfully' };

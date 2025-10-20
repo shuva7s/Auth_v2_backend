@@ -38,7 +38,7 @@ export class SessionGuard implements CanActivate {
       response.clearCookie('session_token', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        sameSite: 'lax',
       });
       throw new UnauthorizedException('Invalid session');
     }
@@ -47,7 +47,7 @@ export class SessionGuard implements CanActivate {
       response.clearCookie('session_token', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        sameSite: 'lax',
       });
       await this.sessionRepo.remove(session);
       throw new UnauthorizedException('Expired token');
@@ -64,7 +64,7 @@ export class SessionGuard implements CanActivate {
       response.cookie('session_token', sessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        sameSite: 'lax',
         maxAge: this.SESSION_DURATION_MS,
       });
     }

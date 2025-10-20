@@ -9,14 +9,14 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
-  if (process.env.NODE_ENV !== 'production') {
-    app.enableCors({
-      origin: ['http://localhost:3000'],
-      credentials: true,
-    });
-  }
+  app.enableCors({
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? 'https://auth.shuvadeep.site'
+        : 'http://localhost:3000',
+    credentials: true,
+  });
 
-  // global api prefix
   app.setGlobalPrefix('api');
 
   await app.listen(process.env.PORT!);

@@ -74,4 +74,35 @@ export class AuthController {
       },
     };
   }
+
+  @Post('forgot-password')
+  forgotPassword(
+    @Body() dto: { email: string },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const email = dto.email;
+    return this.authService.forgotPassword(email, res);
+  }
+
+  @Post('validate-reset-password-token')
+  validateResetPasswordToken(@Body('token') token: string) {
+    return this.authService.validateResetPasswordToken(token);
+  }
+
+  @Post('reset-password')
+  resetPassword(
+    @Body()
+    dto: {
+      token: string;
+      new_password: string;
+      confirm_new_password: string;
+    },
+  ) {
+    const { token, new_password, confirm_new_password } = dto;
+    return this.authService.resetPassword({
+      token,
+      new_password,
+      confirm_new_password,
+    });
+  }
 }

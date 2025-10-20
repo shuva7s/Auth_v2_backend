@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeepPartial, Repository } from 'typeorm';
 import * as crypto from 'crypto';
@@ -11,6 +15,8 @@ import { TempUser } from 'src/user/entities/temp_users.entity';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { SigninDto } from './dtos/signin.dto';
+import { Verification } from './entities/verification.entity';
+import { decryptEmail, encryptEmail } from 'src/utils/email.encryption';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +25,8 @@ export class AuthService {
     @InjectRepository(TempUser) private tempUserRepo: Repository<TempUser>,
     @InjectRepository(Account) private accountRepo: Repository<Account>,
     @InjectRepository(Session) private sessionRepo: Repository<Session>,
+    @InjectRepository(Verification)
+    private verificationRepo: Repository<Verification>,
     private jwtService: JwtService,
   ) {}
   async signup(data: SignupDto, res: Response) {
@@ -229,5 +237,117 @@ export class AuthService {
     });
 
     return { message: 'Logged out successfully' };
+  }
+
+  async forgotPassword(email: string, res: Response) {
+    if (!email) throw new BadRequestException('Invalid email');
+
+    const user = await this.userRepo.findOne({ where: { email } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const token = encryptEmail(email);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    const verification = this.verificationRepo.create({
+      identifier: email,
+      value: token,
+      expiresAt,
+    });
+
+    await this.verificationRepo.save(verification);
+
+    const resetLink = `${process.env.NODE_ENV === 'production' ? 'https://auth.shuvadeep.site' : 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(token)}`;
+    console.log('🔗 Secure Password Reset Link:', resetLink);
+    return { message: 'Password reset link has been generated' };
+  }
+
+  async validateResetPasswordToken(token: string) {
+    if (!token) throw new BadRequestException('Password reset token missing');
+    try {
+      const decoded = decodeURIComponent(token);
+      const email = decryptEmail(decoded);
+
+      const record = await this.verificationRepo.findOne({
+        where: { identifier: email, value: decoded },
+      });
+
+      if (!record) throw new NotFoundException('Invalid token');
+
+      if (new Date(record.expiresAt) < new Date())
+        throw new BadRequestException('Token expired');
+
+      return { message: 'Token is valid' };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      )
+        throw error;
+      throw new BadRequestException('Invalid token');
+    }
+  }
+
+  async resetPassword({
+    token,
+    new_password,
+    confirm_new_password,
+  }: {
+    token: string;
+    new_password: string;
+    confirm_new_password: string;
+  }) {
+    if (!token) throw new BadRequestException('Password reset token missing');
+    if (new_password !== confirm_new_password)
+      throw new BadRequestException('Passwords do not match');
+    if (new_password.length < 8)
+      throw new BadRequestException(
+        'Passwords must be at least 8 characters long',
+      );
+
+    try {
+      const decoded = decodeURIComponent(token);
+      const email = decryptEmail(decoded);
+
+      const record = await this.verificationRepo.findOne({
+        where: { identifier: email, value: decoded },
+      });
+
+      if (!record) throw new NotFoundException('Invalid token');
+
+      if (new Date(record.expiresAt) < new Date())
+        throw new BadRequestException('Token expired');
+
+      const user = await this.userRepo.findOne({ where: { email } });
+      if (!user) throw new NotFoundException('User not found');
+
+      const existing_credential_account = await this.accountRepo.findOne({
+        where: { user: { id: user.id }, providerId: 'credential' },
+      });
+
+      const passwordHash = await bcrypt.hash(new_password, 10);
+
+      if (existing_credential_account) {
+        existing_credential_account.hashedPassword = passwordHash;
+        await this.accountRepo.save(existing_credential_account);
+      } else {
+        const new_credential_account = this.accountRepo.create({
+          user,
+          providerId: 'credential',
+          hashedPassword: passwordHash,
+        });
+        await this.accountRepo.save(new_credential_account);
+      }
+
+      await this.verificationRepo.delete({ id: record.id });
+
+      return { message: 'Password has been reset successfully' };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      )
+        throw error;
+      throw new BadRequestException('Invalid token');
+    }
   }
 }

@@ -18,6 +18,7 @@ import { Session } from './entities/session.entity';
 import { SigninDto } from './dtos/signin.dto';
 import { Verification } from './entities/verification.entity';
 import { decryptEmail, encryptEmail } from 'src/utils/email.encryption';
+import { BrevoMailerService } from 'src/mailer/brevo-mailer.service';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +30,7 @@ export class AuthService {
     @InjectRepository(Verification)
     private verificationRepo: Repository<Verification>,
     private jwtService: JwtService,
+    private readonly brevoMailer: BrevoMailerService,
   ) {}
   async signup(data: SignupDto, res: Response) {
     const existing = await this.userRepo.findOne({
@@ -50,7 +52,10 @@ export class AuthService {
       ['email'],
     );
 
-    console.log(`OTP for ${data.email}: ${otp}`); // TODO: replace with actual mailer
+    if (process.env.NODE_ENV !== 'production') console.log('Signup OTP: ', otp);
+    else {
+      await this.brevoMailer.sendSignupOtp(data.email, otp, data.name);
+    }
 
     const token = this.jwtService.sign({ email: data.email });
 
@@ -258,7 +263,13 @@ export class AuthService {
     await this.verificationRepo.save(verification);
 
     const resetLink = `${process.env.FRONT_END_URL}/reset-password?token=${encodeURIComponent(token)}`;
-    console.log('🔗 Secure Password Reset Link:', resetLink);
+
+    if (process.env.NODE_ENV !== 'production') console.log(resetLink);
+    else {
+      await this.brevoMailer.sendResetPassword(email, resetLink, user.name);
+    }
+
+    await this.brevoMailer.sendResetPassword(email, resetLink, user.name);
     return { message: 'Password reset link has been generated' };
   }
 

@@ -10,6 +10,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { TempUser } from 'src/user/entities/temp_users.entity';
 import { PassportModule } from '@nestjs/passport';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { BrevoMailerService } from 'src/mailer/brevo-mailer.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
     }),
     PassportModule.register({ session: false }),
   ],
-  providers: [AuthService, GoogleStrategy],
+  providers: [AuthService, GoogleStrategy, BrevoMailerService],
   controllers: [AuthController],
   exports: [AuthService],
 })

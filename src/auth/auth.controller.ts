@@ -15,6 +15,7 @@ import { SessionGuard } from 'src/guards/auth.guard';
 import { User } from 'src/user/entities/user.entity';
 import { Session } from './entities/session.entity';
 import { AuthGuard } from '@nestjs/passport';
+import { NotAuthGuard } from 'src/guards/not-auth.guard';
 
 export type AuthenticatedRequest = Request & {
   user: User;
@@ -25,11 +26,13 @@ export type AuthenticatedRequest = Request & {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @UseGuards(NotAuthGuard)
   @Post('sign-up')
   signUp(@Body() dto: SignupDto, @Res({ passthrough: true }) res: Response) {
     return this.authService.signup(dto, res);
   }
 
+  @UseGuards(NotAuthGuard)
   @Post('verify-signup-otp')
   verifyOtp(
     @Body('otp') otp: string,
@@ -43,6 +46,7 @@ export class AuthController {
     });
   }
 
+  @UseGuards(NotAuthGuard)
   @Post('sign-in')
   signIn(
     @Body() dto: SigninDto,
@@ -107,10 +111,12 @@ export class AuthController {
     });
   }
 
+  @UseGuards(NotAuthGuard)
   @Get('google')
   @UseGuards(AuthGuard('google'))
   async googleLogin() {}
 
+  @UseGuards(NotAuthGuard)
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleCallback(@Req() req: Request, @Res() res: Response) {

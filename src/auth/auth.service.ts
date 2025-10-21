@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeepPartial, Repository } from 'typeorm';
@@ -256,7 +257,7 @@ export class AuthService {
 
     await this.verificationRepo.save(verification);
 
-    const resetLink = `${process.env.NODE_ENV === 'production' ? 'https://auth.shuvadeep.site' : 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(token)}`;
+    const resetLink = `${process.env.FRONT_END_URL}/reset-password?token=${encodeURIComponent(token)}`;
     console.log('🔗 Secure Password Reset Link:', resetLink);
     return { message: 'Password reset link has been generated' };
   }
@@ -349,5 +350,92 @@ export class AuthService {
         throw error;
       throw new BadRequestException('Invalid token');
     }
+  }
+
+  async handleGoogleCallback(req: Request, res: Response) {
+    try {
+      return await this.handleGoogleSignIn({ req, res });
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      )
+        throw error;
+      throw new InternalServerErrorException(
+        error.message || 'Something went wrong during Google sign-in',
+      );
+    }
+  }
+
+  async handleGoogleSignIn({ req, res }: { req: Request; res: Response }) {
+    const googleProfile = req.user as any;
+
+    if (!googleProfile)
+      throw new BadRequestException('Google authentication failed');
+
+    const { email, name, accessToken, refreshToken, picture } = googleProfile;
+
+    if (!email) throw new BadRequestException('No email returned from Google');
+
+    let user = await this.userRepo.findOne({ where: { email } });
+
+    if (!user) {
+      user = this.userRepo.create({
+        name: name || 'Google User',
+        email,
+        avatarUrl: picture,
+      });
+      await this.userRepo.save(user);
+    }
+
+    let account = await this.accountRepo.findOne({
+      where: { providerId: 'google', user: { id: user.id } },
+    });
+
+    if (!account) {
+      account = this.accountRepo.create({
+        user,
+        providerId: 'google',
+        accessToken,
+        refreshToken,
+        idToken: googleProfile.idToken ?? null,
+        scope: googleProfile.scope ?? null,
+      });
+      await this.accountRepo.save(account);
+    } else {
+      // Update tokens if re-login happens
+      account.accessToken = accessToken;
+      account.refreshToken = refreshToken;
+      account.updatedAt = new Date();
+      await this.accountRepo.save(account);
+    }
+
+    const sessionToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const ipAddress =
+      req.headers['x-forwarded-for']?.toString() ||
+      req.socket.remoteAddress ||
+      null;
+    const userAgent = req.headers['user-agent'] || null;
+
+    const session = this.sessionRepo.create({
+      user,
+      sessionToken,
+      expiresAt,
+      ipAddress,
+      userAgent,
+    } as DeepPartial<Session>);
+    await this.sessionRepo.save(session);
+
+    res.cookie('session_token', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    console.log(`User ${user.email} signed in via Google`);
+
+    return res.redirect(process.env.FRONT_END_URL!);
   }
 }

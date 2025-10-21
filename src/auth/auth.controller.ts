@@ -14,6 +14,7 @@ import { SigninDto } from './dtos/signin.dto';
 import { SessionGuard } from 'src/guards/auth.guard';
 import { User } from 'src/user/entities/user.entity';
 import { Session } from './entities/session.entity';
+import { AuthGuard } from '@nestjs/passport';
 
 export type AuthenticatedRequest = Request & {
   user: User;
@@ -104,5 +105,15 @@ export class AuthController {
       new_password,
       confirm_new_password,
     });
+  }
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleLogin() {}
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleCallback(@Req() req: Request, @Res() res: Response) {
+    return this.authService.handleGoogleCallback(req, res);
   }
 }
